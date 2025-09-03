@@ -46,7 +46,7 @@ except Exception:
         return fallback
 
 app = FastAPI(title="Green Score API")
-add_cors(app, origins=["https://ecoscore-backend.vercel.app"]) 
+add_cors(app, origins=["https://ecoscore.vercel.app"]) 
 app.include_router(router)
 
 # Controls
