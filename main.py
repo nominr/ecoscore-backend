@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 import redis
 import logging
+from fastapi.middleware.cors import add_cors
 
 from api.endpoints import router, compute_green_score  # compute_green_score must be SYNC
 from utils.kv import r, cache_set_zip, ZIP_CACHE_PREFIX
@@ -45,6 +46,7 @@ except Exception:
         return fallback
 
 app = FastAPI(title="Green Score API")
+add_cors(app, origins=["https://ecoscore-backend.vercel.app"]) 
 app.include_router(router)
 
 # Controls

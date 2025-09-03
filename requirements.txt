@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+requests
+redis
+overpy
+python-dotenv
+pydantic
+numpy
+pystac-client 
+planetary-computer 
+rasterio
