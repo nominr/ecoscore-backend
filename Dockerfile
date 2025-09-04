@@ -1,12 +1,21 @@
-# FROM python:3.11-
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.7.2-python3.11
+FROM python:3.11-slim
 
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    # allow PROJ to fetch grids if needed
+    PROJ_NETWORK=ON
+
+# minimal OS deps (no GDAL dev packages needed for binary wheels)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl && rm -rf /var/lib/apt/lists/*
+    curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Force binary wheels (no source builds)
+RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
 
 COPY . .
 ENV PORT=8000

@@ -6,6 +6,6 @@ overpy
 pydantic
 python-dotenv
 numpy==1.26.4
-rasterio==1.3.9
+rasterio==1.3.9          
 pystac-client==0.7.6
 planetary-computer==1.0.0
