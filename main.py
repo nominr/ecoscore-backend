@@ -24,7 +24,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-load_dotenv()
+# load_dotenv()
 
 # Try to import Houston ZIPs helper; fallback to a static list if missing
 try:
