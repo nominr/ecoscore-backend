@@ -12,7 +12,7 @@ import time
 from fastapi import FastAPI
 import redis
 import logging
-from api.cors import add_cors
+from api.cors import add_cors 
 
 try: 
     from dotenv import load_dotenv
