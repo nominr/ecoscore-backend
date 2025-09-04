@@ -5,16 +5,3 @@ redis
 overpy
 python-dotenv
 pydantic
-numpy
-pystac-client 
-planetary-computer 
-rasterio
-dotenv
-typing
-os
-future
-functools
-time
-json
-threading
-concurrent
