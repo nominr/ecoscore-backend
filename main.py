@@ -9,11 +9,16 @@ from __future__ import annotations
 import os
 import asyncio
 import time
-from dotenv import load_dotenv
 from fastapi import FastAPI
 import redis
 import logging
 from fastapi.middleware.cors import add_cors
+
+try: 
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 from api.endpoints import router, compute_green_score  # compute_green_score must be SYNC
 from utils.kv import r, cache_set_zip, ZIP_CACHE_PREFIX

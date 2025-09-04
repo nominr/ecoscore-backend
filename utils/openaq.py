@@ -1,10 +1,10 @@
 import os
 import requests
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from math import radians, sin, cos, sqrt, atan2
 import math
 
-load_dotenv()
+# load_dotenv()
 
 API_KEY = os.getenv("OPENAQ_API_KEY")
 if not API_KEY:

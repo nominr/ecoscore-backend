@@ -13,7 +13,7 @@ import os
 import requests
 from typing import Dict, Any, Optional, List
 from .cache import ttl_cache
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 # load_dotenv()
 
