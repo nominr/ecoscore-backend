@@ -13,6 +13,7 @@ from fastapi import FastAPI
 import redis
 import logging
 from api.cors import add_cors 
+import time
 
 try: 
     from dotenv import load_dotenv
@@ -123,3 +124,21 @@ async def startup():
         # asyncio.create_task(_prewarm_houston())
     if ENABLE_REDIS_EXPIRE_LISTENER:
         asyncio.create_task(asyncio.to_thread(_expiration_worker_blocking))
+
+# Middleware to capture and expose response timing.
+@app.middleware("http")
+async def timing_middleware(request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    duration_ms = int((time.time() - start_time) * 1000)
+    response.headers["X-Response-Time-ms"] = str(duration_ms)
+    return response
+
+# Lightweight health endpoint for uptime monitoring.
+@app.get("/health")
+def health():
+    try:
+        ok = r.ping()
+    except Exception:
+        ok = False
+    return {"ok": bool(ok)}
