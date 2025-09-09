@@ -7,12 +7,14 @@ for a given input ZIP code.  Expensive calls are executed concurrently and
 repetitive queries are rate limited.
 """
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Response
 from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 import os
 import time
 import math
+import hashlib
+import json
 
 from utils.geocode import get_coordinates_from_zip
 from utils.airnow import get_aqi_by_zip
@@ -260,14 +262,61 @@ def compute_green_score(zip: str) -> Dict[str, Any]:
     }
 
 @router.get("/green-score")
-def green_score(zip: str):
+def green_score(zip: str, request: Request):
+    """
+    Compute or retrieve a green score for the supplied ZIP code.
+
+    This endpoint enforces a simple per-IP rate limit, serves cached responses
+    where available, and returns 304 Not Modified when the client presents
+    a matching ETag.  Cached responses are annotated with `X-Cache` headers.
+    """
+    # simple per-IP rate limiting (sync, uses X-Forwarded-For if present)
+    client_ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+                 or (request.client.host if request.client else "unknown"))
+    now = time.time()
+    calls = _request_log.get(client_ip, [])
+    calls = [t for t in calls if now - t < 60]
+    if len(calls) >= RATE_LIMIT_PER_MIN:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
+    calls.append(now)
+    _request_log[client_ip] = calls
+
+    # Attempt to serve from cache.
     cached = cache_get_zip(zip)
     if cached:
-        return cached
+        etag = hashlib.sha256(json.dumps(cached, sort_keys=True).encode('utf-8')).hexdigest()
+        inm = request.headers.get('if-none-match')
+        if inm == etag:
+            # Data unchanged since last fetch.
+            return Response(status_code=304, headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=600",
+                "X-Cache": "HIT",
+            })
+        return Response(
+            content=json.dumps(cached),
+            media_type="application/json",
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=600",
+                "X-Cache": "HIT",
+            }
+        )
 
     result = compute_green_score(zip)
     if isinstance(result, dict) and not result.get("error"):
-        cache_set_zip(zip, result)  # 30-day TTL
+        cache_set_zip(zip, result)
+        etag = hashlib.sha256(json.dumps(result, sort_keys=True).encode('utf-8')).hexdigest()
+        return Response(
+            content=json.dumps(result),
+            media_type="application/json",
+            headers={
+                "ETag": etag,
+                "Cache-Control": "public, max-age=600",
+                "X-Cache": "MISS",
+            }
+        )
+    # error: return as-is (dict with error)
     return result
 
 @router.get("/sea-level")
