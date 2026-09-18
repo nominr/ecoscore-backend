@@ -30,7 +30,7 @@ except Exception:
     _OVERPY_AVAILABLE = False
 
 try:
-    from overpass_throttle import hedged_paced_query as paced_query  # type: ignore
+    from .overpass_throttle import hedged_paced_query as paced_query  # type: ignore
 except Exception:
     paced_query = None  # type: ignore
 

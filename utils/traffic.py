@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import math
+import requests
 from typing import Dict, Any
 from utils.overpass_throttle import hedged_paced_query as paced_query
 import overpy
@@ -34,7 +35,7 @@ except Exception:
                     pass
             time.sleep(backoff)
             backoff = min(backoff * 1.8, 30.0)
-        raise overpy.exception.OverpassTooManyRequests("Overpass failed after retries")
+        raise RuntimeError("Overpass failed after retries")
 
 # ---- TTL cache (fallback if not present) -------------------------------------
 try:
@@ -77,6 +78,56 @@ ROAD_WEIGHTS = {
 
 # ---- Core calc ---------------------------------------------------------------
 def _compute_total_road_length(lat: float, lon: float, radius_m: int = 1000) -> Dict[str, Any]:
+    """Compute weighted road length from Census TIGERweb geometry."""
+    total_weighted_length = 0.0
+    raw_lengths: Dict[str, float] = {}
+    seen = set()
+    tiger_layers = {
+        2: 1.0,  # primary roads
+        3: 0.8,  # secondary roads
+        8: 0.2,  # local roads
+    }
+    base_url = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer"
+
+    def segment_length_m(path):
+        length = 0.0
+        for first, second in zip(path, path[1:]):
+            dx = (second[0] - first[0]) * 111000.0 * math.cos(math.radians(lat))
+            dy = (second[1] - first[1]) * 111000.0
+            length += math.hypot(dx, dy)
+        return length
+
+    for layer_id, weight in tiger_layers.items():
+        params = {
+            "f": "json",
+            "where": "1=1",
+            "geometry": f"{lon},{lat}",
+            "geometryType": "esriGeometryPoint",
+            "inSR": "4326",
+            "spatialRel": "esriSpatialRelIntersects",
+            "distance": radius_m,
+            "units": "esriSRUnit_Meter",
+            "outFields": "OBJECTID,MTFCC",
+            "returnGeometry": "true",
+            "outSR": "4326",
+        }
+        response = requests.get(f"{base_url}/{layer_id}/query", params=params, timeout=20)
+        response.raise_for_status()
+        for feature in response.json().get("features", []):
+            attributes = feature.get("attributes", {})
+            key = attributes.get("OBJECTID") or attributes.get("OID")
+            if key in seen:
+                continue
+            seen.add(key)
+            for path in feature.get("geometry", {}).get("paths", []):
+                length_m = segment_length_m(path)
+                total_weighted_length += length_m * weight
+                raw_lengths[str(attributes.get("MTFCC", layer_id))] = raw_lengths.get(str(attributes.get("MTFCC", layer_id)), 0.0) + length_m
+
+    return {"weighted_length": total_weighted_length, "raw_road_lengths": raw_lengths}
+
+
+def _compute_total_road_length_overpass(lat: float, lon: float, radius_m: int = 1000) -> Dict[str, Any]:
     # 'out geom' returns per-way geometry points in the same response (no extra calls)
     q = f"""
     [out:json][timeout:180];
@@ -129,7 +180,10 @@ def normalize_traffic_score(weighted_length_m: float, radius_m: int) -> int:
 @ttl_cache(seconds=int(os.getenv("TRAFFIC_TTL_SECONDS", str(30 * 24 * 3600))))
 def get_traffic_score(zip_code: str, lat: float, lon: float) -> Dict[str, Any]:
     radius = get_radius_from_population(zip_code)
-    result = _compute_total_road_length(lat, lon, radius_m=radius)
+    try:
+        result = _compute_total_road_length(lat, lon, radius_m=radius)
+    except Exception:
+        result = _compute_total_road_length_overpass(lat, lon, radius_m=radius)
     return {
         "score": normalize_traffic_score(result["weighted_length"], radius),
         "weighted_length": result["weighted_length"],

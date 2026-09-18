@@ -40,11 +40,15 @@ def get_demographics(zip_code: str) -> Dict[str, Any]:
     if CENSUS_API_KEY:
         params["key"] = CENSUS_API_KEY
     try:
-        resp = requests.get(base_url, params=params, timeout=30)
+        resp = requests.get(base_url, params=params, timeout=30, allow_redirects=False)
     except Exception as e:
         return {"error": f"Request failed: {e}"}
+    if resp.status_code in (301, 302, 303, 307, 308):
+        return {"error": "Census API redirected the request; configure CENSUS_API_KEY."}
     if resp.status_code != 200:
         return {"error": f"Census API returned {resp.status_code}: {resp.text}"}
+    if "json" not in resp.headers.get("content-type", "").lower():
+        return {"error": "Census API returned a non-JSON response; configure CENSUS_API_KEY."}
     try:
         data = resp.json()
     except Exception as e:

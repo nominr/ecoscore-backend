@@ -5,7 +5,9 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 ZIP_CACHE_TTL_SECONDS = int(os.getenv("ZIP_CACHE_TTL_SECONDS", str(30*24*3600)))  # 30 days
 ZIP_CACHE_PREFIX = os.getenv("ZIP_CACHE_PREFIX", "greenscore:")
 
-r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+# The Windows Redis build installed here is older and does not support the default
+# RESP3 HELLO handshake used by recent redis-py versions. Force RESP2 for compatibility.
+r = redis.Redis.from_url(REDIS_URL, decode_responses=True, protocol=2)
 
 def _key(zip_code: str) -> str:
     return f"{ZIP_CACHE_PREFIX}{zip_code}"

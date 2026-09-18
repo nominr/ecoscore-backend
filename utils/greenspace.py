@@ -53,7 +53,7 @@ except Exception:
 
             if last_exc:
                 raise last_exc
-            raise overpy.exception.OverpassTooManyRequests("Overpass failed after retries")
+            raise RuntimeError("Overpass failed after retries")
 
 # TTL cache (fallback if not present)
 try:

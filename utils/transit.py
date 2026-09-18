@@ -39,7 +39,7 @@ except Exception:
 
 try:
     # hedged_paced_query is defined in overpass_throttle.py at project root
-    from overpass_throttle import hedged_paced_query as paced_query  # type: ignore
+    from .overpass_throttle import hedged_paced_query as paced_query  # type: ignore
 except Exception:
     paced_query = None  # type: ignore
 
@@ -133,13 +133,13 @@ def get_transit_access_score(lat: float, lon: float, radius_m: int = 1500) -> Di
             if element.get("type") == "node":
                 stops_count += 1
 
-        if stops_count == 0:
-            score = 0
-        else:
-            area_km2 = math.pi * (radius_m / 1000.0) ** 2
-            density = stops_count / area_km2  # stops / km²
-            alpha = 0.22
-            score = int(round(100.0 * (1.0 - math.exp(-alpha * density))))
+    if stops_count == 0:
+        score = 0
+    else:
+        area_km2 = math.pi * (radius_m / 1000.0) ** 2
+        density = stops_count / area_km2  # stops / km²
+        alpha = 0.22
+        score = int(round(100.0 * (1.0 - math.exp(-alpha * density))))
 
     return {
         "score": score,

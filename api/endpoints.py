@@ -106,6 +106,17 @@ def _geometric_mean_over_scores(scores: dict) -> int | None:
     return int(round(max(0.0, min(100.0, gm))))
 
 
+def _run_metric(fn, *args, **kwargs) -> Dict[str, Any]:
+    """Convert provider exceptions into an error result for one metric."""
+    try:
+        result = fn(*args, **kwargs)
+    except Exception as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+    if isinstance(result, dict):
+        return result
+    return {"error": "Metric provider returned an invalid response"}
+
+
 def compute_green_score(zip: str) -> Dict[str, Any]:
     """
     Compute green scores for a ZIP code by aggregating multiple environmental metrics.
@@ -129,18 +140,18 @@ def compute_green_score(zip: str) -> Dict[str, Any]:
     # worker count to accommodate additional metrics.
     with ThreadPoolExecutor(max_workers=10) as executor:
         # Existing metrics
-        fut_air = executor.submit(get_aqi_by_zip, zip)
-        fut_land = executor.submit(get_canopy_and_pavement, coords[0], coords[1], 0.01)
-        fut_traffic = executor.submit(get_traffic_score, zip, coords[0], coords[1])
-        fut_toxic = executor.submit(get_toxic_sites, coords[0], coords[1])
-        fut_green = executor.submit(get_green_space, coords[0], coords[1])
-        fut_dem = executor.submit(get_demographics, zip)
+        fut_air = executor.submit(_run_metric, get_aqi_by_zip, zip)
+        fut_land = executor.submit(_run_metric, get_canopy_and_pavement, coords[0], coords[1], 0.01)
+        fut_traffic = executor.submit(_run_metric, get_traffic_score, zip, coords[0], coords[1])
+        fut_toxic = executor.submit(_run_metric, get_toxic_sites, coords[0], coords[1])
+        fut_green = executor.submit(_run_metric, get_green_space, coords[0], coords[1])
+        fut_dem = executor.submit(_run_metric, get_demographics, zip)
 
         # New environmental metrics
-        fut_sea_level = executor.submit(get_sea_level_rise_score, coords[0], coords[1])
-        fut_transit = executor.submit(get_transit_access_score, coords[0], coords[1])
-        fut_water = executor.submit(get_water_score, coords[0], coords[1])
-        fut_flood_rtfi = executor.submit(get_rtfi_flood_risk, coords[0], coords[1])
+        fut_sea_level = executor.submit(_run_metric, get_sea_level_rise_score, coords[0], coords[1])
+        fut_transit = executor.submit(_run_metric, get_transit_access_score, coords[0], coords[1])
+        fut_water = executor.submit(_run_metric, get_water_score, coords[0], coords[1])
+        fut_flood_rtfi = executor.submit(_run_metric, get_rtfi_flood_risk, coords[0], coords[1])
 
         # Wait for results
         airnow_result = fut_air.result()

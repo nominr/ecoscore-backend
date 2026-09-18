@@ -1,4 +1,3 @@
-# utils/houston_zips.py
 import requests
 from typing import List, Set
 
